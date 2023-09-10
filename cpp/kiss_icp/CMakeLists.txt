@@ -40,6 +40,10 @@ if(USE_CCACHE)
   endif()
 endif()
 
+include_directories(
+    ${SLAMBENCH_INCLUDE_DIR}
+)
+
 # Set build type (repeat here for C++ only consumers)
 set(CMAKE_BUILD_TYPE Release)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -51,3 +55,21 @@ include(cmake/CompilerOptions.cmake)
 add_subdirectory(core)
 add_subdirectory(metrics)
 add_subdirectory(pipeline)
+set(WRAPPER_PATH "${CMAKE_SOURCE_DIR}/wrapper")
+
+add_library(${PROJECT_NAME}-original SHARED kiss-library.cpp)
+
+SET(SLAMBENCH_C_WRAPPER	-Wl,--whole-archive -L${WRAPPER_PATH} slambench-c-wrapper	-Wl,--no-whole-archive)
+SET(NULL_FILE_PATH	${WRAPPER_PATH}/null.cpp)
+target_link_libraries(${PROJECT_NAME}-original PUBLIC "Eigen3::Eigen" "kiss_icp::pipeline")
+function(generate_slam_library library_name )
+
+    add_library(${library_name}-library SHARED ${NULL_FILE_PATH})
+    target_link_libraries(${library_name}-library PRIVATE ${SLAMBENCH_C_WRAPPER} ${library_name})
+    SET_TARGET_PROPERTIES(${library_name}-library PROPERTIES LINK_FLAGS "${ARGN}")
+    SET_TARGET_PROPERTIES(${library_name}-library PROPERTIES INSTALL_RPATH "${LIB_PATH}")
+    install(TARGETS ${library_name}-library  DESTINATION  lib/)
+
+endfunction()
+
+generate_slam_library(${PROJECT_NAME}-original "-Wl,--disable-new-dtags")
